@@ -32,7 +32,7 @@ def count_artifacts(art_url, access_token, index_repos):
     list_of_artifacts = []
 
     for repository_name in index_repos['name']:
-        script = "%s -r %s -j %s -u dort -p %s -d %d" % (indexable_script_location, repository_name, art_url, access_token, max_num_of_days_retention)
+        script = "%s -r %s -j %s -p %s -d %d" % (indexable_script_location, repository_name, art_url, access_token, max_num_of_days_retention)
         subprocess.run([script], shell=True)
         count_in_file_command = "cat xray-indexable-artifacts.json | jq '.range.total'"
         number_of_artifacts = subprocess.run(count_in_file_command, shell=True, capture_output=True, text=True)
@@ -84,10 +84,10 @@ def indexed_health_check():
 
     repos = get_repository_index_status(art_url, access_token)
     indexed_repos_table, non_indexed_repos_table = create_table_of_repositories(repos)
-    indexed_repos_table = count_indexed_artifacts(art_url, access_token, indexed_repos_table)
+    #indexed_repos_table = count_indexed_artifacts(art_url, access_token, indexed_repos_table)
     indexed_repos_table = count_artifacts(art_url, access_token, indexed_repos_table)
-    indexed_repos_table['index_percantage'] = indexed_repos_table['indexed'] / indexed_repos_table['indexable_artifacts'] * 100
-    indexed_repos_table.sort_values(by='index_percantage', ascending=False)
+    #indexed_repos_table['index_percantage'] = indexed_repos_table['indexed'] / indexed_repos_table['indexable_artifacts'] * 100
+    #indexed_repos_table.sort_values(by='index_percantage', ascending=False)
     indexed_repos_table.to_csv("indexed_artifacts.csv", index=False)
     non_indexed_repos_table.to_csv("non_indexed_artifacts.csv", index=False)
 
