@@ -2,6 +2,19 @@ import requests
 import pandas as pd
 import subprocess
 import os
+import math
+
+threshold = 80
+
+
+def highlight_below_threshold(val):
+    if val['index_percantage'] < threshold:
+        color = 'background-color: #ffe6e6'
+    elif math.isnan(val['index_percantage']):
+        color = 'background-color: white'
+    else:
+        color = 'background-color: #e6ffe6'
+    return [color] * len(val)
 
 
 def get_repository_index_status(art_url, access_token):
@@ -12,6 +25,7 @@ def get_repository_index_status(art_url, access_token):
 
     if repos.status_code != 200:
         print("Error:", repos.text)
+        exit()
 
     return repos.json()
 
@@ -56,6 +70,8 @@ def count_indexed_artifacts(art_url, access_token, index_repos):
             offset_string = "/xray/api/v1/artifacts?num_of_rows=1000&repo=%s&offset=%d" % (repository_name, offset)
             get_artifacts_api = art_url + offset_string
             response = requests.get(get_artifacts_api, headers=headers)
+            if response.status_code != 200:
+                print("Error:" + response.text)
             json_object = response.json()
             if json_object['data'] is None:
                 num_of_indexed_artifacts = 0
@@ -78,19 +94,25 @@ def repo_type(art_url, access_token, repository_name):
     return response.json()['rclass']
 
 
-def indexed_health_check():
-    art_url = os.getenv('ART_URL')
-    access_token = os.getenv('ART_ACCESS_TOKEN')
-
-    repos = get_repository_index_status(art_url, access_token)
-    indexed_repos_table, non_indexed_repos_table = create_table_of_repositories(repos)
-    #indexed_repos_table = count_indexed_artifacts(art_url, access_token, indexed_repos_table)
-    indexed_repos_table = count_artifacts(art_url, access_token, indexed_repos_table)
-    #indexed_repos_table['index_percantage'] = indexed_repos_table['indexed'] / indexed_repos_table['indexable_artifacts'] * 100
-    #indexed_repos_table.sort_values(by='index_percantage', ascending=False)
+def style_tables(indexed_repos_table, non_indexed_repos_table):
+    indexed_repos_table = indexed_repos_table.sort_values(by='index_percantage', ascending=False)
+    styled_df = indexed_repos_table.style.apply(highlight_below_threshold, axis=1)
+    styled_df.to_html("indexed_health_check.html")
     indexed_repos_table.to_csv("indexed_artifacts.csv", index=False)
     non_indexed_repos_table.to_csv("non_indexed_artifacts.csv", index=False)
 
 
+def indexed_health_check(art_url, access_token):
+    repos = get_repository_index_status(art_url, access_token)
+    indexed_repos_table, non_indexed_repos_table = create_table_of_repositories(repos)
+    indexed_repos_table = count_indexed_artifacts(art_url, access_token, indexed_repos_table)
+    indexed_repos_table = count_artifacts(art_url, access_token, indexed_repos_table)
+    indexed_repos_table['index_percantage'] = indexed_repos_table['indexed'] / indexed_repos_table['indexable_artifacts'] * 100
+
+    style_tables(indexed_repos_table, non_indexed_repos_table)
+
+
 if __name__ == "__main__":
-    indexed_health_check()
+    url = os.getenv('ART_URL')
+    token = os.getenv('ART_ACCESS_TOKEN')
+    indexed_health_check(url, token)
